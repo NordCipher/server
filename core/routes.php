@@ -77,6 +77,8 @@ $application->registerRoutes($this, [
 		['name' => 'RecommendedApps#index', 'url' => '/core/apps/recommended', 'verb' => 'GET'],
 		['name' => 'Svg#getSvgFromCore', 'url' => '/svg/core/{folder}/{fileName}', 'verb' => 'GET'],
 		['name' => 'Svg#getSvgFromApp', 'url' => '/svg/{app}/{fileName}', 'verb' => 'GET'],
+		['name' => 'UnifiedSearch#getProviders', 'url' => '/search/providers', 'verb' => 'GET'],
+		['name' => 'UnifiedSearch#search', 'url' => '/search/providers/{providerId}/search', 'verb' => 'GET'],
 		['name' => 'Css#getCss', 'url' => '/css/{appName}/{fileName}', 'verb' => 'GET'],
 		['name' => 'Js#getJs', 'url' => '/js/{appName}/{fileName}', 'verb' => 'GET'],
 		['name' => 'contactsMenu#index', 'url' => '/contactsmenu/contacts', 'verb' => 'POST'],
@@ -86,17 +88,9 @@ $application->registerRoutes($this, [
 		['name' => 'Wipe#checkWipe', 'url' => '/core/wipe/check', 'verb' => 'POST'],
 		['name' => 'Wipe#wipeDone', 'url' => '/core/wipe/success', 'verb' => 'POST'],
 
-		// Legacy routes that need to be globally available while they are handled by an app
-		['name' => 'viewcontroller#showFile', 'url' => '/f/{fileid}', 'verb' => 'GET', 'app' => 'files'],
-		['name' => 'sharecontroller#showShare', 'url' => '/s/{token}', 'verb' => 'GET', 'app' => 'files_sharing'],
-		['name' => 'sharecontroller#showAuthenticate', 'url' => '/s/{token}/authenticate/{redirect}', 'verb' => 'GET', 'app' => 'files_sharing'],
-		['name' => 'sharecontroller#authenticate', 'url' => '/s/{token}/authenticate/{redirect}', 'verb' => 'POST', 'app' => 'files_sharing'],
-		['name' => 'sharecontroller#downloadShare', 'url' => '/s/{token}/download', 'verb' => 'GET', 'app' => 'files_sharing'],
-		['name' => 'publicpreview#directLink', 'url' => '/s/{token}/preview', 'verb' => 'GET', 'app' => 'files_sharing'],
-		['name' => 'requesthandlercontroller#addShare', 'url' => '/ocm/shares', 'verb' => 'POST', 'app' => 'cloud_federation_api'],
-		['name' => 'requesthandlercontroller#receiveNotification', 'url' => '/ocm/notifications', 'verb' => 'POST', 'app' => 'cloud_federation_api'],
-		['name' => 'pagecontroller#showCall', 'url' => '/call/{token}', 'verb' => 'GET', 'app' => 'spreed'],
-		['name' => 'pagecontroller#authenticatePassword', 'url' => '/call/{token}', 'verb' => 'POST', 'app' => 'spreed'],
+		// Logins for passwordless auth
+		['name' => 'WebAuthn#startAuthentication', 'url' => 'login/webauthn/start', 'verb' => 'POST'],
+		['name' => 'WebAuthn#finishAuthentication', 'url' => 'login/webauthn/finish', 'verb' => 'POST'],
 	],
 	'ocs' => [
 		['root' => '/cloud', 'name' => 'OCS#getCapabilities', 'url' => '/capabilities', 'verb' => 'GET'],

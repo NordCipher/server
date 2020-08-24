@@ -24,7 +24,6 @@
 use Behat\Behat\Context\Context;
 
 class FilesAppSharingContext implements Context, ActorAwareInterface {
-
 	use ActorAware;
 
 	/**
@@ -104,22 +103,64 @@ class FilesAppSharingContext implements Context, ActorAwareInterface {
 	/**
 	 * @return Locator
 	 */
-	public static function canReshareCheckbox($sharedWithName) {
-		// forThe()->checkbox("Can reshare") can not be used here; that would
-		// return the checkbox itself, but the element that the user interacts
-		// with is the label.
-		return Locator::forThe()->xpath("//label[normalize-space() = 'Allow resharing']")->
+	public static function permissionCheckboxFor($sharedWithName, $itemText) {
+		// forThe()->checkbox($itemText) can not be used here; that would return
+		// the checkbox itself, but the element that the user interacts with is
+		// the label.
+		return Locator::forThe()->xpath("//label[normalize-space() = '$itemText']")->
 				descendantOf(self::shareWithMenu($sharedWithName))->
-				describedAs("Allow resharing checkbox in the share with $sharedWithName menu in the details view in Files app");
+				describedAs("$itemText checkbox in the share with $sharedWithName menu in the details view in Files app");
+	}
+
+	/**
+	 * @return Locator
+	 */
+	public static function permissionCheckboxInputFor($sharedWithName, $itemText) {
+		return Locator::forThe()->checkbox($itemText)->
+				descendantOf(self::shareWithMenu($sharedWithName))->
+				describedAs("$itemText checkbox input in the share with $sharedWithName menu in the details view in Files app");
+	}
+
+	/**
+	 * @return Locator
+	 */
+	public static function canEditCheckbox($sharedWithName) {
+		return self::permissionCheckboxFor($sharedWithName, 'Allow editing');
+	}
+
+	/**
+	 * @return Locator
+	 */
+	public static function canEditCheckboxInput($sharedWithName) {
+		return self::permissionCheckboxInputFor($sharedWithName, 'Allow editing');
+	}
+
+	/**
+	 * @return Locator
+	 */
+	public static function canCreateCheckbox($sharedWithName) {
+		return self::permissionCheckboxFor($sharedWithName, 'Allow creating');
+	}
+
+	/**
+	 * @return Locator
+	 */
+	public static function canCreateCheckboxInput($sharedWithName) {
+		return self::permissionCheckboxInputFor($sharedWithName, 'Allow creating');
+	}
+
+	/**
+	 * @return Locator
+	 */
+	public static function canReshareCheckbox($sharedWithName) {
+		return self::permissionCheckboxFor($sharedWithName, 'Allow resharing');
 	}
 
 	/**
 	 * @return Locator
 	 */
 	public static function canReshareCheckboxInput($sharedWithName) {
-		return Locator::forThe()->checkbox("Allow resharing")->
-				descendantOf(self::shareWithMenu($sharedWithName))->
-				describedAs("Allow resharing checkbox input in the share with $sharedWithName menu in the details view in Files app");
+		return self::permissionCheckboxInputFor($sharedWithName, 'Allow resharing');
 	}
 
 	/**
@@ -287,6 +328,17 @@ class FilesAppSharingContext implements Context, ActorAwareInterface {
 	 * @Given I write down the shared link
 	 */
 	public function iWriteDownTheSharedLink() {
+		// Close the share link menu if it is open to ensure that it does not
+		// cover the copy link button.
+		if (!WaitFor::elementToBeEventuallyNotShown(
+				$this->actor,
+				self::shareLinkMenu(),
+				$timeout = 2 * $this->actor->getFindTimeoutMultiplier())) {
+			// It may not be possible to click on the menu button (due to the
+			// menu itself covering it), so "Esc" key is pressed instead.
+			$this->actor->find(self::shareLinkMenu(), 2)->getWrappedElement()->keyPress(27);
+		}
+
 		$this->actor->find(self::copyLinkButton(), 10)->click();
 
 		// Clicking on the menu item copies the link to the clipboard, but it is
@@ -360,6 +412,28 @@ class FilesAppSharingContext implements Context, ActorAwareInterface {
 	}
 
 	/**
+	 * @When I set the share with :shareWithName as not editable
+	 */
+	public function iSetTheShareWithAsNotEditable($shareWithName) {
+		$this->showShareWithMenuIfNeeded($shareWithName);
+
+		$this->iSeeThatCanEditTheShare($shareWithName);
+
+		$this->actor->find(self::canEditCheckbox($shareWithName), 2)->click();
+	}
+
+	/**
+	 * @When I set the share with :shareWithName as not creatable
+	 */
+	public function iSetTheShareWithAsNotCreatable($shareWithName) {
+		$this->showShareWithMenuIfNeeded($shareWithName);
+
+		$this->iSeeThatCanCreateInTheShare($shareWithName);
+
+		$this->actor->find(self::canCreateCheckbox($shareWithName), 2)->click();
+	}
+
+	/**
 	 * @When I set the share with :shareWithName as not reshareable
 	 */
 	public function iSetTheShareWithAsNotReshareable($shareWithName) {
@@ -394,6 +468,66 @@ class FilesAppSharingContext implements Context, ActorAwareInterface {
 				$this->actor->find(self::shareWithInput(), 10)->getWrappedElement()->getAttribute("disabled"), "disabled");
 		PHPUnit_Framework_Assert::assertEquals(
 				$this->actor->find(self::shareWithInput(), 10)->getWrappedElement()->getAttribute("placeholder"), "Resharing is not allowed");
+	}
+
+	/**
+	 * @Then I see that :sharedWithName can not be allowed to edit the share
+	 */
+	public function iSeeThatCanNotBeAllowedToEditTheShare($sharedWithName) {
+		$this->showShareWithMenuIfNeeded($sharedWithName);
+
+		PHPUnit_Framework_Assert::assertEquals(
+				$this->actor->find(self::canEditCheckboxInput($sharedWithName), 10)->getWrappedElement()->getAttribute("disabled"), "disabled");
+	}
+
+	/**
+	 * @Then I see that :sharedWithName can edit the share
+	 */
+	public function iSeeThatCanEditTheShare($sharedWithName) {
+		$this->showShareWithMenuIfNeeded($sharedWithName);
+
+		PHPUnit_Framework_Assert::assertTrue(
+				$this->actor->find(self::canEditCheckboxInput($sharedWithName), 10)->isChecked());
+	}
+
+	/**
+	 * @Then I see that :sharedWithName can not edit the share
+	 */
+	public function iSeeThatCanNotEditTheShare($sharedWithName) {
+		$this->showShareWithMenuIfNeeded($sharedWithName);
+
+		PHPUnit_Framework_Assert::assertFalse(
+				$this->actor->find(self::canEditCheckboxInput($sharedWithName), 10)->isChecked());
+	}
+
+	/**
+	 * @Then I see that :sharedWithName can not be allowed to create in the share
+	 */
+	public function iSeeThatCanNotBeAllowedToCreateInTheShare($sharedWithName) {
+		$this->showShareWithMenuIfNeeded($sharedWithName);
+
+		PHPUnit_Framework_Assert::assertEquals(
+				$this->actor->find(self::canCreateCheckboxInput($sharedWithName), 10)->getWrappedElement()->getAttribute("disabled"), "disabled");
+	}
+
+	/**
+	 * @Then I see that :sharedWithName can create in the share
+	 */
+	public function iSeeThatCanCreateInTheShare($sharedWithName) {
+		$this->showShareWithMenuIfNeeded($sharedWithName);
+
+		PHPUnit_Framework_Assert::assertTrue(
+				$this->actor->find(self::canCreateCheckboxInput($sharedWithName), 10)->isChecked());
+	}
+
+	/**
+	 * @Then I see that :sharedWithName can not create in the share
+	 */
+	public function iSeeThatCanNotCreateInTheShare($sharedWithName) {
+		$this->showShareWithMenuIfNeeded($sharedWithName);
+
+		PHPUnit_Framework_Assert::assertFalse(
+				$this->actor->find(self::canCreateCheckboxInput($sharedWithName), 10)->isChecked());
 	}
 
 	/**

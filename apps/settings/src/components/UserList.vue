@@ -312,13 +312,16 @@ export default {
 		settings() {
 			return this.$store.getters.getServerData
 		},
+		selectedGroupDecoded() {
+			return decodeURIComponent(this.selectedGroup)
+		},
 		filteredUsers() {
 			if (this.selectedGroup === 'disabled') {
 				return this.users.filter(user => user.enabled === false)
 			}
 			if (!this.settings.isAdmin) {
 				// we don't want subadmins to edit themselves
-				return this.users.filter(user => user.enabled !== false && user.id !== OC.getCurrentUser().uid)
+				return this.users.filter(user => user.enabled !== false)
 			}
 			return this.users.filter(user => user.enabled !== false)
 		},
@@ -382,7 +385,7 @@ export default {
 	},
 	watch: {
 		// watch url change and group select
-		selectedGroup: function(val, old) {
+		selectedGroup(val, old) {
 			// if selected is the disabled group but it's empty
 			this.redirectIfDisabled()
 			this.$store.commit('resetUsers')
@@ -392,7 +395,7 @@ export default {
 
 		// make sure the infiniteLoading state is changed if we manually
 		// add/remove data from the store
-		usersCount: function(val, old) {
+		usersCount(val, old) {
 			// deleting the last user, reset the list
 			if (val === 0 && old === 1) {
 				this.$refs.infiniteLoading.stateChanger.reset()

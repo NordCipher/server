@@ -8,8 +8,6 @@
 
 namespace Test;
 
-
-use OC\App\AppStore\Bundles\Bundle;
 use OC\App\AppStore\Fetcher\AppFetcher;
 use OC\Archive\ZIP;
 use OC\Installer;
@@ -26,18 +24,17 @@ use OCP\ITempManager;
  * @group DB
  */
 class InstallerTest extends TestCase {
-
 	private static $appid = 'testapp';
 	private $appstore;
-	/** @var AppFetcher|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var AppFetcher|\PHPUnit\Framework\MockObject\MockObject */
 	private $appFetcher;
-	/** @var IClientService|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IClientService|\PHPUnit\Framework\MockObject\MockObject */
 	private $clientService;
-	/** @var ITempManager|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var ITempManager|\PHPUnit\Framework\MockObject\MockObject */
 	private $tempManager;
-	/** @var ILogger|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var ILogger|\PHPUnit\Framework\MockObject\MockObject */
 	private $logger;
-	/** @var IConfig|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IConfig|\PHPUnit\Framework\MockObject\MockObject */
 	private $config;
 
 	protected function setUp(): void {

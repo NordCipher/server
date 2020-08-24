@@ -6,7 +6,12 @@ declare(strict_types=1);
  * @copyright 2019 Christoph Wurst <christoph@winzerhof-wurst.at>
  *
  * @author Christoph Wurst <christoph@winzerhof-wurst.at>
+ * @author Joas Schilling <coding@schilljs.com>
+ * @author Morris Jobke <hey@morrisjobke.de>
+ * @author rawtaz <rawtaz@users.noreply.github.com>
+ * @author Roeland Jago Douma <roeland@famdouma.nl>
  * @author Sascha Wiswedel <sascha.wiswedel@nextcloud.com>
+ * @author Tobia De Koninck <LEDfan@users.noreply.github.com>
  *
  * @license GNU AGPL version 3 or any later version
  *
@@ -34,9 +39,11 @@ use OCA\Files\Exception\TransferOwnershipException;
 use OCP\Encryption\IManager as IEncryptionManager;
 use OCP\Files\FileInfo;
 use OCP\Files\IHomeStorage;
+use OCP\Files\InvalidPathException;
 use OCP\Files\Mount\IMountManager;
 use OCP\IUser;
 use OCP\Share\IManager as IShareManager;
+use OCP\Share\IShare;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -92,18 +99,31 @@ class OwnershipTransferService {
 			throw new TransferOwnershipException("The target user is not ready to accept files. The user has at least to have logged in once.", 2);
 		}
 
-		if ($move) {
-			$finalTarget = "$destinationUid/files/";
-		} else {
-			$date = date('Y-m-d H-i-s');
-			$finalTarget = "$destinationUid/files/transferred from $sourceUid on $date";
-		}
-
 		// setup filesystem
 		Filesystem::initMountPoints($sourceUid);
 		Filesystem::initMountPoints($destinationUid);
 
 		$view = new View();
+
+		if ($move) {
+			$finalTarget = "$destinationUid/files/";
+		} else {
+			$date = date('Y-m-d H-i-s');
+
+			// Remove some characters which are prone to cause errors
+			$cleanUserName = str_replace(['\\', '/', ':', '.', '?', '#', '\'', '"'], '-', $sourceUser->getDisplayName());
+			// Replace multiple dashes with one dash
+			$cleanUserName = preg_replace('/-{2,}/s', '-', $cleanUserName);
+			$cleanUserName = $cleanUserName ?: $sourceUid;
+
+			$finalTarget = "$destinationUid/files/transferred from $cleanUserName on $date";
+			try {
+				$view->verifyPath(dirname($finalTarget), basename($finalTarget));
+			} catch (InvalidPathException $e) {
+				$finalTarget = "$destinationUid/files/transferred from $sourceUid on $date";
+			}
+		}
+
 		if (!($view->is_dir($sourcePath) || $view->is_file($sourcePath))) {
 			throw new TransferOwnershipException("Unknown path provided: $path", 1);
 		}
@@ -176,7 +196,7 @@ class OwnershipTransferService {
 		$output->writeln('Validating quota');
 		$size = $view->getFileInfo($sourcePath, false)->getSize(false);
 		$freeSpace = $view->free_space($destinationUid . '/files/');
-		if ($size > $freeSpace) {
+		if ($size > $freeSpace && $freeSpace !== FileInfo::SPACE_UNKNOWN) {
 			$output->writeln('<error>Target user does not have enough free space available.</error>');
 			throw new \Exception('Execution terminated.');
 		}
@@ -221,7 +241,7 @@ class OwnershipTransferService {
 
 		$shares = [];
 		$progress = new ProgressBar($output);
-		foreach ([\OCP\Share::SHARE_TYPE_GROUP, \OCP\Share::SHARE_TYPE_USER, \OCP\Share::SHARE_TYPE_LINK, \OCP\Share::SHARE_TYPE_REMOTE, \OCP\Share::SHARE_TYPE_ROOM] as $shareType) {
+		foreach ([IShare::TYPE_GROUP, IShare::TYPE_USER, IShare::TYPE_LINK, IShare::TYPE_REMOTE, IShare::TYPE_ROOM, IShare::TYPE_EMAIL, IShare::TYPE_CIRCLE] as $shareType) {
 			$offset = 0;
 			while (true) {
 				$sharePage = $this->shareManager->getSharesBy($sourceUid, $shareType, null, true, 50, $offset);
@@ -273,7 +293,7 @@ class OwnershipTransferService {
 
 		foreach ($shares as $share) {
 			try {
-				if ($share->getShareType() === \OCP\Share::SHARE_TYPE_USER &&
+				if ($share->getShareType() === IShare::TYPE_USER &&
 					$share->getSharedWith() === $destinationUid) {
 					// Unmount the shares before deleting, so we don't try to get the storage later on.
 					$shareMountPoint = $this->mountManager->find('/' . $destinationUid . '/files' . $share->getTarget());
@@ -301,5 +321,4 @@ class OwnershipTransferService {
 		$progress->finish();
 		$output->writeln('');
 	}
-
 }

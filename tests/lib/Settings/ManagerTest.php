@@ -24,7 +24,6 @@
 namespace OCA\Settings\Tests\AppInfo;
 
 use OC\Settings\Manager;
-use OCA\Settings\Admin\Sharing;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use OCP\ILogger;
@@ -37,17 +36,17 @@ use Test\TestCase;
 
 class ManagerTest extends TestCase {
 
-	/** @var Manager|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var Manager|\PHPUnit\Framework\MockObject\MockObject */
 	private $manager;
-	/** @var ILogger|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var ILogger|\PHPUnit\Framework\MockObject\MockObject */
 	private $logger;
-	/** @var IDBConnection|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IDBConnection|\PHPUnit\Framework\MockObject\MockObject */
 	private $l10n;
-	/** @var IFactory|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IFactory|\PHPUnit\Framework\MockObject\MockObject */
 	private $l10nFactory;
-	/** @var IURLGenerator|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IURLGenerator|\PHPUnit\Framework\MockObject\MockObject */
 	private $url;
-	/** @var IServerContainer|\PHPUnit_Framework_MockObject_MockObject */
+	/** @var IServerContainer|\PHPUnit\Framework\MockObject\MockObject */
 	private $container;
 
 	protected function setUp(): void {
@@ -96,7 +95,7 @@ class ManagerTest extends TestCase {
 		$this->l10n
 			->expects($this->any())
 			->method('t')
-			->will($this->returnArgument(0));
+			->willReturnArgument(0);
 
 		$this->assertEquals([], $this->manager->getPersonalSections());
 	}
@@ -195,7 +194,7 @@ class ManagerTest extends TestCase {
 		$this->l10n
 			->expects($this->any())
 			->method('t')
-			->will($this->returnArgument(0));
+			->willReturnArgument(0);
 
 		$this->manager->registerSection('personal', \OCA\WorkflowEngine\Settings\Section::class);
 		$this->manager->registerSection('admin', \OCA\WorkflowEngine\Settings\Section::class);

@@ -131,6 +131,14 @@
 		dirInfo: null,
 
 		/**
+		 * Whether to prevent or to execute the default file actions when the
+		 * file name is clicked.
+		 *
+		 * @type boolean
+		 */
+		_defaultFileActionsDisabled: false,
+
+		/**
 		 * File actions handler, defaults to OCA.Files.FileActions
 		 * @type OCA.Files.FileActions
 		 */
@@ -292,6 +300,10 @@
 				this._detailsView.$el.addClass('disappear');
 			}
 
+			if (options && options.defaultFileActionsDisabled) {
+				this._defaultFileActionsDisabled = options.defaultFileActionsDisabled
+			}
+
 			this._initFileActions(options.fileActions);
 
 			if (this._detailsView) {
@@ -371,8 +383,6 @@
 				}
 			});
 
-			this.updateSearch();
-
 			this.$fileList.on('click','td.filename>a.name, td.filesize, td.date', _.bind(this._onClickFile, this));
 
 			this.$fileList.on("droppedOnFavorites", function (event, file) {
@@ -420,7 +430,7 @@
 					this.setupUploadEvents(this._uploader);
 				}
 			}
-
+			this.triedActionOnce = false;
 
 			OC.Plugins.attach('OCA.Files.FileList', this);
 
@@ -636,7 +646,7 @@
 				return;
 			}
 
-			if (!fileName) {
+			if (!fileName && OCA.Files.Sidebar.close) {
 				OCA.Files.Sidebar.close()
 				return
 			} else if (typeof fileName !== 'string') {
@@ -862,29 +872,24 @@
 			if ($tr.hasClass('dragging')) {
 				return;
 			}
-			if (this._allowSelection && (event.ctrlKey || event.shiftKey)) {
+			if (this._allowSelection && event.shiftKey) {
 				event.preventDefault();
-				if (event.shiftKey) {
-					this._selectRange($tr);
-				} else {
-					this._selectSingle($tr);
-				}
+				this._selectRange($tr);
 				this._lastChecked = $tr;
 				this.updateSelectionSummary();
-			} else {
+			} else if (!event.ctrlKey) {
 				// clicked directly on the name
 				if (!this._detailsView || $(event.target).is('.nametext, .name, .thumbnail') || $(event.target).closest('.nametext').length) {
 					var filename = $tr.attr('data-file');
 					var renaming = $tr.data('renaming');
-					if (!renaming) {
+					if (this._defaultFileActionsDisabled) {
+						event.preventDefault();
+					} else if (!renaming) {
 						this.fileActions.currentFile = $tr.find('td');
-						var mime = this.fileActions.getCurrentMimeType();
-						var type = this.fileActions.getCurrentType();
-						var permissions = this.fileActions.getCurrentPermissions();
-						var action = this.fileActions.getDefault(mime,type, permissions);
-						if (action) {
+						var spec = this.fileActions.getCurrentDefaultFileAction();
+						if (spec && spec.action) {
 							event.preventDefault();
-							action(filename, {
+							spec.action(filename, {
 								$file: $tr,
 								fileList: this,
 								fileActions: this.fileActions,
@@ -1119,7 +1124,6 @@
 			if ($targetDir !== undefined && e.which === 1) {
 				e.preventDefault();
 				this.changeDirectory($targetDir, true, true);
-				this.updateSearch();
 			}
 		},
 
@@ -1307,6 +1311,31 @@
 						newTrs[i].removeClass('transparent');
 					}
 				}, 0);
+			}
+
+			if(!this.triedActionOnce) {
+				var id = OC.Util.History.parseUrlQuery().openfile;
+				if (id) {
+					var $tr = this.$fileList.children().filterAttr('data-id', '' + id);
+					var filename = $tr.attr('data-file');
+					this.fileActions.currentFile = $tr.find('td');
+					var dir = $tr.attr('data-path') || this.getCurrentDirectory();
+					var spec = this.fileActions.getCurrentDefaultFileAction();
+					if (spec && spec.action) {
+						spec.action(filename, {
+							$file: $tr,
+							fileList: this,
+							fileActions: this.fileActions,
+							dir: dir
+						});
+
+					}
+					else {
+						var url = this.getDownloadUrl(filename, dir, true);
+						OCA.Files.Files.handleDownload(url);
+					}
+				}
+				this.triedActionOnce = true;
 			}
 
 			return newTrs;
@@ -1513,9 +1542,13 @@
 			td = $('<td class="filename"></td>');
 
 
+			var spec = this.fileActions.getDefaultFileAction(mime, type, permissions);
 			// linkUrl
 			if (mime === 'httpd/unix-directory') {
 				linkUrl = this.linkTo(path + '/' + name);
+			}
+			else if (spec && spec.action) {
+				linkUrl = this.getDefaultActionUrl(path, fileData.id);
 			}
 			else {
 				linkUrl = this.getDownloadUrl(name, path, type === 'dir');
@@ -1524,6 +1557,11 @@
 				"class": "name",
 				"href": linkUrl
 			});
+			if (this._defaultFileActionsDisabled) {
+				linkElem = $('<p></p>').attr({
+					"class": "name"
+				})
+			}
 
 			linkElem.append('<div class="thumbnail-wrapper"><div class="thumbnail" style="background-image:url(' + icon + ');"></div></div>');
 
@@ -1606,7 +1644,7 @@
 
 			// size column
 			if (typeof(fileData.size) !== 'undefined' && fileData.size >= 0) {
-				simpleSize = humanFileSize(parseInt(fileData.size, 10), true);
+				simpleSize = OC.Util.humanFileSize(parseInt(fileData.size, 10), true);
 				// rgb(118, 118, 118) / #767676
 				// min. color contrast for normal text on white background according to WCAG AA
 				sizeColor = Math.round(118-Math.pow((fileData.size/(1024*1024)), 2));
@@ -2128,6 +2166,10 @@
 
 		getDownloadUrl: function(files, dir, isDir) {
 			return OCA.Files.Files.getDownloadUrl(files, dir || this.getCurrentDirectory(), isDir);
+		},
+
+		getDefaultActionUrl: function(path, id) {
+			return this.linkTo(path) + "&openfile="+id;
 		},
 
 		getUploadUrl: function(fileName, dir) {
@@ -3189,7 +3231,12 @@
 				$('#searchresults').addClass('filter-empty');
 				$('#searchresults .emptycontent').addClass('emptycontent-search');
 				if ( $('#searchresults').length === 0 || $('#searchresults').hasClass('hidden') ) {
-					var error = t('files', 'No search results in other folders for {tag}{filter}{endtag}', {filter:this._filter});
+					var error;
+					if (this._filter.length > 2) {
+						error = t('files', 'No search results in other folders for {tag}{filter}{endtag}', {filter:this._filter});
+					} else {
+						error = t('files', 'Enter more than two characters to search in other folders');
+					}
 					this.$el.find('.nofilterresults').removeClass('hidden').
 						find('p').html(error.replace('{tag}', '<strong>').replace('{endtag}', '</strong>'));
 				}
@@ -3210,17 +3257,7 @@
 		getFilter:function(filter) {
 			return this._filter;
 		},
-		/**
-		 * update the search object to use this filelist when filtering
-		 */
-		updateSearch:function() {
-			if (OCA.Search.files) {
-				OCA.Search.files.setFileList(this);
-			}
-			if (OC.Search) {
-				OC.Search.clear();
-			}
-		},
+
 		/**
 		 * Update UI based on the current selection
 		 */
@@ -3789,7 +3826,7 @@
 	OCA.Files.FileList = FileList;
 })();
 
-$(document).ready(function() {
+window.addEventListener('DOMContentLoaded', function() {
 	// FIXME: unused ?
 	OCA.Files.FileList.useUndo = (window.onbeforeunload)?true:false;
 	$(window).on('beforeunload', function () {

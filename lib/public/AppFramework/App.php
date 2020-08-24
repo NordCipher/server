@@ -6,6 +6,8 @@ declare(strict_types=1);
  * @copyright Copyright (c) 2016, ownCloud, Inc.
  *
  * @author Bernhard Posselt <dev@bernhard-posselt.com>
+ * @author Christoph Wurst <christoph@winzerhof-wurst.at>
+ * @author Daniel Kesselberg <mail@danielkesselberg.de>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Julius Härtl <jus@bitgrid.net>
  * @author Lukas Reschke <lukas@statuscode.ch>
@@ -37,6 +39,7 @@ declare(strict_types=1);
  */
 
 namespace OCP\AppFramework;
+
 use OC\AppFramework\Routing\RouteConfig;
 use OC\ServerContainer;
 use OCP\Route\IRouter;
@@ -75,7 +78,10 @@ class App {
 	 * @since 6.0.0
 	 */
 	public function __construct(string $appName, array $urlParams = []) {
-		if (\OC::$server->getConfig()->getSystemValueBool('debug')) {
+		$runIsSetupDirectly = \OC::$server->getConfig()->getSystemValueBool('debug')
+			&& (PHP_VERSION_ID < 70400 || (PHP_VERSION_ID >= 70400 && !ini_get('zend.exception_ignore_args')));
+
+		if ($runIsSetupDirectly) {
 			$applicationClassName = get_class($this);
 			$e = new \RuntimeException('App class ' . $applicationClassName . ' is not setup via query() but directly');
 			$setUpViaQuery = false;
@@ -89,7 +95,7 @@ class App {
 					$step['args'][0] === $applicationClassName) {
 					$setUpViaQuery = true;
 					break;
-				} else if (isset($step['class'], $step['function'], $step['args'][0]) &&
+				} elseif (isset($step['class'], $step['function'], $step['args'][0]) &&
 					$step['class'] === ServerContainer::class &&
 					$step['function'] === 'getAppContainer' &&
 					$step['args'][1] === $classNameParts[1]) {
@@ -138,6 +144,7 @@ class App {
 	 * @param array $routes
 	 * @since 6.0.0
 	 * @suppress PhanAccessMethodInternal
+	 * @deprecated 20.0.0 Just return an array from your routes.php
 	 */
 	public function registerRoutes(IRouter $router, array $routes) {
 		$routeConfig = new RouteConfig($this->container, $router, $routes);

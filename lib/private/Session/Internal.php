@@ -36,8 +36,6 @@ namespace OC\Session;
 
 use OC\Authentication\Exceptions\InvalidTokenException;
 use OC\Authentication\Token\IProvider;
-use OC\SystemConfig;
-use OCP\IConfig;
 use OCP\Session\Exceptions\SessionNotAvailableException;
 
 /**
@@ -106,7 +104,7 @@ class Internal extends Session {
 	public function clear() {
 		$this->invoke('session_unset');
 		$this->regenerateId();
-		$this->startSession();
+		$this->startSession(true);
 		$_SESSION = [];
 	}
 
@@ -205,21 +203,21 @@ class Internal extends Session {
 	 */
 	private function invoke(string $functionName, array $parameters = [], bool $silence = false) {
 		try {
-			if($silence) {
+			if ($silence) {
 				return @call_user_func_array($functionName, $parameters);
 			} else {
 				return call_user_func_array($functionName, $parameters);
 			}
-		} catch(\Error $e) {
+		} catch (\Error $e) {
 			$this->trapError($e->getCode(), $e->getMessage());
 		}
 	}
 
-	private function startSession() {
+	private function startSession(bool $silence = false) {
 		if (PHP_VERSION_ID < 70300) {
-			$this->invoke('session_start');
+			$this->invoke('session_start', [], $silence);
 		} else {
-			$this->invoke('session_start', [['cookie_samesite' => 'Lax']]);
+			$this->invoke('session_start', [['cookie_samesite' => 'Lax']], $silence);
 		}
 	}
 }

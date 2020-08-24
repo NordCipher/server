@@ -3,6 +3,7 @@
  * @copyright Copyright (c) 2016, ownCloud, Inc.
  *
  * @author Björn Schießle <bjoern@schiessle.org>
+ * @author Christoph Wurst <christoph@winzerhof-wurst.at>
  * @author Joas Schilling <coding@schilljs.com>
  * @author John Molakvoæ (skjnldsv) <skjnldsv@protonmail.com>
  * @author Morris Jobke <hey@morrisjobke.de>
@@ -28,8 +29,11 @@
  *
  */
 
-use OCA\Files_Trashbin\Tests;
 use OCA\Files_Sharing\AppInfo\Application;
+use OCA\Files_Trashbin\AppInfo\Application as TrashbinApplication;
+use OC\AppFramework\Bootstrap\BootContext;
+use OC\AppFramework\DependencyInjection\DIContainer;
+use OCP\Share\IShare;
 
 /**
  * Class Test_Encryption
@@ -37,9 +41,8 @@ use OCA\Files_Sharing\AppInfo\Application;
  * @group DB
  */
 class TrashbinTest extends \Test\TestCase {
-
-	const TEST_TRASHBIN_USER1 = "test-trashbin-user1";
-	const TEST_TRASHBIN_USER2 = "test-trashbin-user2";
+	public const TEST_TRASHBIN_USER1 = "test-trashbin-user1";
+	public const TEST_TRASHBIN_USER2 = "test-trashbin-user2";
 
 	private $trashRoot1;
 	private $trashRoot2;
@@ -83,8 +86,9 @@ class TrashbinTest extends \Test\TestCase {
 		$expiration = \OC::$server->query(\OCA\Files_Trashbin\Expiration::class);
 		$expiration->setRetentionObligation('auto, 2');
 
-		// register hooks
-		\OCA\Files_Trashbin\Trashbin::registerHooks();
+		// register trashbin hooks
+		$trashbinApp = new TrashbinApplication();
+		$trashbinApp->boot(new BootContext(new DIContainer('', [], \OC::$server)));
 
 		// create test user
 		self::loginHelper(self::TEST_TRASHBIN_USER2, true);
@@ -122,14 +126,14 @@ class TrashbinTest extends \Test\TestCase {
 		$mockConfig = $this->createMock(\OCP\IConfig::class);
 		$mockConfig->expects($this->any())
 			->method('getSystemValue')
-			->will($this->returnCallback(function ($key, $default) use ($config) {
+			->willReturnCallback(function ($key, $default) use ($config) {
 				if ($key === 'filesystem_check_changes') {
 					return \OC\Files\Cache\Watcher::CHECK_ONCE;
 				} else {
 					return $config->getSystemValue($key, $default);
 				}
-			}));
-		$this->overwriteService('AllConfig', $mockConfig);
+			});
+		$this->overwriteService(\OC\AllConfig::class, $mockConfig);
 
 		$this->trashRoot1 = '/' . self::TEST_TRASHBIN_USER1 . '/files_trashbin';
 		$this->trashRoot2 = '/' . self::TEST_TRASHBIN_USER2 . '/files_trashbin';
@@ -138,7 +142,7 @@ class TrashbinTest extends \Test\TestCase {
 	}
 
 	protected function tearDown(): void {
-		$this->restoreService('AllConfig');
+		$this->restoreService(\OC\AllConfig::class);
 		// disable trashbin to be able to properly clean up
 		\OC::$server->getAppManager()->disableApp('files_trashbin');
 
@@ -210,7 +214,6 @@ class TrashbinTest extends \Test\TestCase {
 	 * correctly
 	 */
 	public function testExpireOldFilesShared() {
-
 		$currentTime = time();
 		$folder = "trashTest-" . $currentTime . '/';
 		$expiredDate = $currentTime - 3 * 24 * 60 * 60;
@@ -225,7 +228,7 @@ class TrashbinTest extends \Test\TestCase {
 		//share user1-4.txt with user2
 		$node = \OC::$server->getUserFolder(self::TEST_TRASHBIN_USER1)->get($folder);
 		$share = \OC::$server->getShareManager()->newShare();
-		$share->setShareType(\OCP\Share::SHARE_TYPE_USER)
+		$share->setShareType(IShare::TYPE_USER)
 			->setNode($node)
 			->setSharedBy(self::TEST_TRASHBIN_USER1)
 			->setSharedWith(self::TEST_TRASHBIN_USER2)
@@ -270,14 +273,14 @@ class TrashbinTest extends \Test\TestCase {
 		$filesInTrashUser2AfterDelete = OCA\Files_Trashbin\Helper::getTrashFiles('/', self::TEST_TRASHBIN_USER2);
 
 		// user2-1.txt should have been expired
-		$this->verifyArray($filesInTrashUser2AfterDelete, array('user2-2.txt', 'user1-4.txt'));
+		$this->verifyArray($filesInTrashUser2AfterDelete, ['user2-2.txt', 'user1-4.txt']);
 
 		self::loginHelper(self::TEST_TRASHBIN_USER1);
 
 		// user1-1.txt and user1-3.txt should have been expired
 		$filesInTrashUser1AfterDelete = OCA\Files_Trashbin\Helper::getTrashFiles('/', self::TEST_TRASHBIN_USER1);
 
-		$this->verifyArray($filesInTrashUser1AfterDelete, array('user1-2.txt', 'user1-4.txt'));
+		$this->verifyArray($filesInTrashUser1AfterDelete, ['user1-2.txt', 'user1-4.txt']);
 	}
 
 	/**
@@ -673,7 +676,6 @@ class TrashbinTest extends \Test\TestCase {
 			try {
 				\OC::$server->getUserManager()->createUser($user, $user);
 			} catch (\Exception $e) { // catch username is already being used from previous aborted runs
-
 			}
 		}
 

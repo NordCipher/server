@@ -51,12 +51,13 @@ OC.L10N.register(
     "Accept" : "Nõustu",
     "Decline" : "Keeldu",
     "Contacts" : "Kontaktid",
+    "Tasks" : "Ülesanded",
     "WebDAV" : "WebDAV",
-    "Technical details" : "Tehnilised detailid",
-    "Remote Address: %s" : "Kaugaadress: %s",
-    "Request ID: %s" : "Päringu ID: %s",
     "Tentative" : "Esialgne",
     "Save" : "Salvesta",
-    "Send invitations to attendees" : "Saada osalejatele kutsed"
+    "Send invitations to attendees" : "Saada osalejatele kutsed",
+    "Technical details" : "Tehnilised detailid",
+    "Remote Address: %s" : "Kaugaadress: %s",
+    "Request ID: %s" : "Päringu ID: %s"
 },
 "nplurals=2; plural=(n != 1);");
